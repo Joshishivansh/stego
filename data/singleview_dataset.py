@@ -1,55 +1,52 @@
 import os
 from PIL import Image
 import torch
-from data.base_dataset import BaseDataset, get_transform
+from torch.utils.data import Dataset
+from torchvision import transforms
 
-
-class SingleViewDataset(BaseDataset):
+class PairedAxialMRIDataset(Dataset):
     """
-    A dataset for paired MRI and CT images for a single view (sagittal, coronal, or axial).
+    A PyTorch Dataset class that loads paired axial MRI and CT slices for each patient.
+    Each patient has:
+        splits/<split>/<patient_id>/MRI/axial/000.png to 255.png
+        splits/<split>/<patient_id>/CT/axial/000.png to 255.png
 
-    Expected folder structure:
-    - dataroot/
-        - train/ or test/ or val/
-            - patient_001/
-                - mr.nii_axial.png
-                - ct.nii_axial.png
+    This dataset returns tuples of (CT_slice_tensor, MRI_slice_tensor)
     """
+    def __init__(self, dataroot, split='train', transform=None):
+        """
+        Args:
+            dataroot (str): Root directory of the dataset (e.g., './splits')
+            split (str): One of 'train', 'val', or 'test'
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root = os.path.join(dataroot, split)
+        self.transform = transform if transform else transforms.ToTensor()
 
-    @staticmethod
-    def modify_commandline_options(parser, is_train):
-        """Add dataset-specific options."""
-        parser.set_defaults(input_nc=1, output_nc=1, direction='AtoB')
-        parser.add_argument('--view', type=str, choices=['sagittal', 'coronal', 'axial'],
-                            required=True, help='View to use (sagittal, coronal, or axial)')
-        return parser
-
-    def __init__(self, opt):
-        """Initialize the dataset."""
-        BaseDataset.__init__(self, opt)
-        self.view = opt.view  # 'sagittal', 'coronal', or 'axial'
-        self.dir = os.path.join(opt.dataroot, opt.phase)
-        self.patients = sorted(os.listdir(self.dir))
-        self.transform = get_transform(opt, grayscale=True)
-
-    def __getitem__(self, index):
-        """Return a single-view MRI and CT pair."""
-        patient = self.patients[index]
-        patient_dir = os.path.join(self.dir, patient)
-
-        mri_path = os.path.join(patient_dir, f"mr.nii_{self.view}.png")
-        ct_path = os.path.join(patient_dir, f"ct.nii_{self.view}.png")
-
-        mri_img = self.transform(Image.open(mri_path))
-        ct_img = self.transform(Image.open(ct_path))
-
-        # Shape: [1, H, W] since grayscale
-        return {
-            'A': mri_img,
-            'B': ct_img,
-            'A_paths': mri_path,
-            'B_paths': ct_path
-        }
+        self.pairs = []
+        patients = sorted(os.listdir(self.root))
+        for patient in patients:
+            mri_dir = os.path.join(self.root, patient, 'mask.nii', 'axial')
+            ct_dir = os.path.join(self.root, patient, 'ct.nii', 'axial')
+            if os.path.isdir(mri_dir) and os.path.isdir(ct_dir):
+                mri_slices = sorted(os.listdir(mri_dir))
+                ct_slices = sorted(os.listdir(ct_dir))
+                if len(mri_slices) == len(ct_slices) == 256:
+                    for mri_slice, ct_slice in zip(mri_slices, ct_slices):
+                        self.pairs.append((
+                            os.path.join(ct_dir, ct_slice),
+                            os.path.join(mri_dir, mri_slice)
+                        ))
 
     def __len__(self):
-        return len(self.patients)
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+        ct_path, mri_path = self.pairs[idx]
+        ct_img = Image.open(ct_path).convert('L')
+        mri_img = Image.open(mri_path).convert('L')
+
+        ct_tensor = self.transform(ct_img)
+        mri_tensor = self.transform(mri_img)
+
+        return {'A': ct_tensor, 'B': mri_tensor, 'A_paths': ct_path, 'B_paths': mri_path}
