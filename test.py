@@ -81,3 +81,109 @@ if __name__ == '__main__':
         print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb)
     webpage.save()  # save the HTML
+
+
+
+
+
+
+
+# import os
+# import csv
+# import numpy as np
+# from options.test_options import TestOptions
+# from data import create_dataset
+# from models import create_model
+# from util.visualizer import save_images
+# from util import html
+# from skimage.metrics import peak_signal_noise_ratio as psnr
+# from skimage.metrics import structural_similarity as ssim
+
+# try:
+#     import wandb
+# except ImportError:
+#     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
+
+# def tensor2im(input_image):
+#     image_tensor = input_image[0].cpu().float().detach()
+#     image_numpy = image_tensor.numpy()
+#     image_numpy = (image_numpy + 1) / 2.0  # de-normalize
+#     image_numpy = np.squeeze(image_numpy)
+#     image_numpy = (image_numpy * 255).astype(np.uint8)
+#     return image_numpy
+
+# def compute_metrics(fake, real):
+#     mse = np.mean((fake.astype(np.float32) - real.astype(np.float32)) ** 2)
+#     mae = np.mean(np.abs(fake.astype(np.float32) - real.astype(np.float32)))
+#     rmse = np.sqrt(mse)
+#     psnr_val = psnr(real, fake, data_range=255)
+#     ssim_val = ssim(real, fake, data_range=255)
+#     return {'PSNR': psnr_val, 'SSIM': ssim_val, 'MAE': mae, 'MSE': mse, 'RMSE': rmse}
+
+# if __name__ == '__main__':
+#     opt = TestOptions().parse()  # get test options
+#     opt.num_threads = 0
+#     opt.batch_size = 1
+#     opt.serial_batches = True
+#     opt.no_flip = True
+#     opt.display_id = -1
+
+#     dataset = create_dataset(opt)
+#     model = create_model(opt)
+#     model.setup(opt)
+
+#     if opt.use_wandb:
+#         wandb_run = wandb.init(project=opt.wandb_project_name, name=opt.name, config=opt) if not wandb.run else wandb.run
+#         wandb_run._label(repo='Stego-GAN')
+
+#     web_dir = os.path.join(opt.results_dir, opt.name, '{}_{}'.format(opt.phase, opt.epoch))
+#     if opt.load_iter > 0:
+#         web_dir = '{:s}_iter{:d}'.format(web_dir, opt.load_iter)
+#     print('creating web directory', web_dir)
+#     webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.epoch))
+
+#     if opt.eval:
+#         model.eval()
+
+#     dataset_size = len(dataset)
+#     print('The number of testing images = %d' % dataset_size)
+
+#     all_metrics = []
+#     csv_file_path = os.path.join(web_dir, 'evaluation_metrics.csv')
+#     with open(csv_file_path, mode='w', newline='') as csv_file:
+#         fieldnames = ['Image', 'PSNR', 'SSIM', 'MAE', 'MSE', 'RMSE']
+#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+#         writer.writeheader()
+
+#         for i, data in enumerate(dataset):
+#             if i >= opt.num_test:
+#                 break
+#             model.set_input(data)
+#             model.test()
+
+#             visuals = model.get_current_visuals()
+#             img_path = model.get_image_paths()
+
+#             fake_ct = tensor2im(visuals['fake_B'])
+#             real_ct = tensor2im(data['A'])
+
+#             metrics = compute_metrics(fake_ct, real_ct)
+#             metrics['Image'] = os.path.basename(img_path[0])
+#             writer.writerow(metrics)
+#             all_metrics.append(metrics)
+
+#             print(f"processing ({i:04d})-th image... {img_path[0]} | PSNR: {metrics['PSNR']:.2f}, SSIM: {metrics['SSIM']:.4f}")
+#             save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb)
+
+#         # Write average metrics at the end of CSV
+#         avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in ['PSNR', 'SSIM', 'MAE', 'MSE', 'RMSE']}
+#         avg_metrics['Image'] = 'Average'
+#         writer.writerow(avg_metrics)
+
+#     webpage.save()
+
+#     # Print average metrics summary
+#     print("\nEvaluation Summary:")
+#     for k, v in avg_metrics.items():
+#         if k != 'Image':
+#             print(f"{k}: {v:.4f}")
