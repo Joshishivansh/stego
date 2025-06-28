@@ -3,6 +3,7 @@ import torch
 from collections import OrderedDict
 from abc import ABC, abstractmethod
 from . import networks
+from typing import Optional, Union
 
 class BaseModel(ABC):
     """This class is an abstract base class (ABC) for models.
@@ -141,7 +142,7 @@ class BaseModel(ABC):
                 errors_ret[name] = float(getattr(self, 'loss_' + name))  # float(...) works for both scalar tensor and float number
         return errors_ret
 
-    def save_networks(self, epoch):
+    def save_networks(self, epoch:Union[str, int]):
         """Save all the networks to the disk.
 
         Parameters:
@@ -149,7 +150,10 @@ class BaseModel(ABC):
         """
         for name in self.model_names:
             if isinstance(name, str):
-                save_filename = '%s_net_%s.pth' % (epoch, name)
+                if isinstance(epoch, int):
+                    save_filename = '%s_net_%s.pth' % (epoch, name)
+                elif isinstance(epoch, str):
+                    save_filename = f"{epoch}_net_{name}.pth"
                 save_path = os.path.join(self.save_dir, save_filename)
                 net = getattr(self, 'net' + name)
 
@@ -173,7 +177,7 @@ class BaseModel(ABC):
         else:
             self.__patch_instance_norm_state_dict(state_dict, getattr(module, key), keys, i + 1)
 
-    def load_networks(self, epoch):
+    def load_networks(self, epoch:Union[str, int]):
         """Load all the networks from the disk.
 
         Parameters:
@@ -181,7 +185,10 @@ class BaseModel(ABC):
         """
         for name in self.model_names:
             if isinstance(name, str):
-                load_filename = '%s_net_%s.pth' % (epoch, name)
+                if isinstance(epoch, int):
+                    load_filename = '%s_net_%s.pth' % (epoch, name)
+                elif isinstance(name, str):
+                    load_filename = f"{epoch}_net_{name}.pth"
                 load_path = os.path.join(self.save_dir, load_filename)
                 net = getattr(self, 'net' + name)
                 if isinstance(net, torch.nn.DataParallel):

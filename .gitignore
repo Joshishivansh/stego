@@ -1,4 +1,4 @@
-checkpoints/
+checkpoints/experiment_name
 results/
 data/splits
 **/__pycache__/**

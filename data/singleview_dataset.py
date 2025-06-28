@@ -29,7 +29,7 @@ class SingleViewDataset(BaseDataset):
 
         patients = sorted(os.listdir(self.dir))
         for patient in patients:
-            mri_dir = os.path.join(self.dir, patient, 'mask.nii', 'axial')
+            mri_dir = os.path.join(self.dir, patient, 'mr.nii', 'axial')
             ct_dir = os.path.join(self.dir, patient, 'ct.nii', 'axial')
             if os.path.isdir(mri_dir) and os.path.isdir(ct_dir):
                 mri_slices = sorted(os.listdir(mri_dir))
@@ -52,7 +52,7 @@ class SingleViewDataset(BaseDataset):
         ct_tensor = self.transform(ct_img)
         mri_tensor = self.transform(mri_img)
 
-        return {'A': ct_tensor, 'B': mri_tensor, 'A_paths': ct_path, 'B_paths': mri_path}
+        return {'A': mri_tensor, 'B': ct_tensor, 'A_paths': mri_path, 'B_paths': ct_path}
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
